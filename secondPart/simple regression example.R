@@ -1,8 +1,11 @@
-library(ggplot2)
-library(gridExtra)
 library(dplyr)
+library(ggplot2)
+library(gganimate)
+library(gridExtra)
 
-x = runif(1000,-1,1)
+
+##set the number of observations
+nObs = 1000
 
 ##set the "true" parameters
 #choose numbers between -4 and 4, please
@@ -10,9 +13,15 @@ intercept = 2
 slope = 3
 
 ##initialize parameters
-#choose numbers between -4 and 4, please
-init_intercept = 0
-init_slope = 0
+#choosing a randomly non-zero value
+init_intercept = rnorm(1)/16
+init_slope = rnorm(1)/16
+
+
+
+
+
+x = runif(nObs,-1,1)
 
 y = slope * x + intercept + 0.2 * rnorm(length(x))
 
@@ -35,61 +44,71 @@ cost = function(X,y,theta) {
 }
 
 
-num_epoch = 200
-alpha = .05
+num_epoch = 100
+alpha = .1
 
 
 
 #initialize
 theta = matrix(c(init_intercept,init_slope),nrow = 2)
 
-cost_history = vector("numeric",num_epoch)
+cost_history = 
+  data.frame(
+    epoch = vector("integer",num_epoch + 1)
+    ,cost = vector("numeric",num_epoch + 1)
+    )
 param_history = 
   data.frame(
-    inter = vector("numeric",num_epoch)
-    ,slope  = vector("numeric",num_epoch)
+    epoch = vector("integer",num_epoch + 1)
+    ,inter = vector("numeric",num_epoch + 1)
+    ,slope  = vector("numeric",num_epoch + 1)
     )
 
-cost_history[1] = cost(X_mat,y, theta)
-param_history[1,] = t(theta)
+cost_history[1,] = c(0,cost(X_mat,y, theta))
+param_history[1,] = c(0,t(theta))
 
-for (i in 2:num_epoch){
+for (i in 1:num_epoch){
   error = (y - X_mat %*% theta)
   delta = -t(X_mat) %*% error / length(y)
   theta = theta - alpha * delta
   
-  cost_history[i] = cost(X_mat,y, theta)
-  param_history[i,] = t(theta)
+  cost_history[i+1,] = c(i,cost(X_mat,y, theta))
+  param_history[i+1,] = c(i,t(theta))
 }
 
 
-data_plot = ggplot(data = grad_desc_data) + 
+
+##plots
+dataPlot = ggplot(data = grad_desc_data) + 
   aes(x = x, y = y) +
   geom_point() + 
-  geom_abline(slope = slope, intercept = intercept
-              , colour = 3, size = 1
-              ) + 
   geom_abline(slope = init_slope, intercept = init_intercept
               , colour = 2
               , size = .75
               , lty = 2
               , alpha = .5
-              )
+              ) +
+  geom_abline(intercept = intercept,slope = slope,col = 3,size = 1) 
+
+
+dataPlot_anim = dataPlot +
+  geom_abline(data = param_history,aes(slope = slope, intercept = inter)
+              , colour = 2, size = 1
+  ) + 
+  labs(title="Epoch: {frame_time}") +
+  transition_time(epoch)
 
 
 
-
-lossPlot = qplot(1:length(cost_history),cost_history
-      ,geom = "line"
-      ,xlim = c(0,num_epoch)
-      ,ylim = range(cost_history)
-      ,ylab = "Loss"
-      ,xlab = "epoch"
-      )
+lossPlot = 
+  ggplot(data = cost_history, aes(x=epoch,y=cost)) +
+  geom_blank()+
+  geom_point(x=cost_history$epoch[1],y=cost_history$cost[1],col="red")
 
 
-
-
+lossPlot_anim = lossPlot + 
+  geom_line(col="red") + 
+  transition_reveal(epoch)
 
 
 ##contour plot creation
@@ -117,17 +136,16 @@ lossCountour = ggplot(data = cost_df, aes(x=inter,y=slope)) +
 
 
 
+lossCountour_anim = lossCountour + 
+  labs(title="Epoch: {frame_along}") +
+  geom_line(data = param_history, colour = 2) +
+  transition_reveal(epoch)
 
 
+#initial state
 grid.arrange(
-  grid::textGrob(paste("Epoch:", 0))
-  , data_plot
-  , qplot(1:length(cost_history[1:1]),cost_history[1:1]
-          ,xlim = c(0,num_epoch)
-          ,ylim = range(cost_history)
-          ,ylab = "Loss"
-          ,xlab = "epoch"
-  )
+  dataPlot
+  , lossPlot
   , lossCountour 
   , ncol = 2
 )
@@ -135,37 +153,13 @@ grid.arrange(
 
 
 
-plot_sequence = c(seq(5,num_epoch,10))
 
-for (i in plot_sequence){
-  grid.arrange(
-    grid::textGrob(paste("Epoch:", i - 1))
-    
-    , data_plot + 
-      geom_abline(data = param_history[i,]
-                  ,aes(slope = slope, intercept = inter)
-                  , colour = 2, size = 1
-                  )
 
-    , qplot(1:length(cost_history[1:i]),cost_history[1:i]
-            ,geom = "line"
-            ,xlim = c(0,num_epoch)
-            ,ylim = range(cost_history)
-            ,ylab = "Loss"
-            ,xlab = "epoch"
-            )
-    
-    , lossCountour +
-      geom_segment(data = param_seg[1:i,]
-                   ,aes(xend = next_inter,yend = next_slope)
-                   ,colour = 2
-                   ,arrow = arrow(length = unit(0.01, "npc")
-                                  )
-                   )
-    , ncol = 2
-    )
-  Sys.sleep(5)
-}
+#graph gradient descent
+lossPlot_anim
+lossCountour_anim
+dataPlot_anim
+
 
 print(theta)
 #how does this estimate compare to the OLS estimate? 
