@@ -9,7 +9,7 @@ nObs = 1000
 
 ##set the "true" parameters
 #choose numbers between -4 and 4, please
-intercept = 2
+intercept = -3
 slope = 3
 
 ##initialize parameters
@@ -17,13 +17,15 @@ slope = 3
 init_intercept = rnorm(1)/16
 init_slope = rnorm(1)/16
 
+print(paste0("initial intercept: ",init_intercept))
+print(paste0("initial slope: ",init_slope))
 
 
 
 
 x = runif(nObs,-1,1)
 
-y = slope * x + intercept + 0.2 * rnorm(length(x))
+y = slope * x + intercept + 0.5 * rnorm(length(x))
 
 grad_desc_data = data.frame(inter = 1, x = x, y = y)
 
@@ -103,7 +105,8 @@ dataPlot_anim = dataPlot +
 lossPlot = 
   ggplot(data = cost_history, aes(x=epoch,y=cost)) +
   geom_blank()+
-  geom_point(x=cost_history$epoch[1],y=cost_history$cost[1],col="red")
+  geom_point(x=cost_history$epoch[1],y=cost_history$cost[1],col="red") +
+  labs(y = "(avg) Loss")
 
 
 lossPlot_anim = lossPlot + 
@@ -136,6 +139,7 @@ lossCountour = ggplot(data = cost_df, aes(x=inter,y=slope)) +
 
 
 
+
 lossCountour_anim = lossCountour + 
   labs(title="Epoch: {frame_along}") +
   geom_line(data = param_history, colour = 2) +
@@ -150,6 +154,9 @@ grid.arrange(
   , ncol = 2
 )
 
+#3d cost plot data
+cost_mat = matrix(cost_df$cost,nrow = length(axis_range),byrow = T)
+persp(z=cost_mat,x=axis_range,y=axis_range,xlab = "slope",ylab="intercept",zlab = "loss",theta = 30)
 
 
 
